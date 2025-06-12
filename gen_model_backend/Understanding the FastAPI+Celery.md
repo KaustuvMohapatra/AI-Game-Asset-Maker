@@ -1,5 +1,3 @@
-Of course. Here is the provided information structured into a clean and professional `README.md` format.
-
 ---
 
 # AI Asset Generator API
