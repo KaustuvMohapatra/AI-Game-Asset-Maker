@@ -7,3 +7,4 @@ accelerate
 torch
 torchvision
 Pillow
+requests
