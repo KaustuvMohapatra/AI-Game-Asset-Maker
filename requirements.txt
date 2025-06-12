@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+celery[redis]
+diffusers
+transformers
+accelerate
+torch
+torchvision
+Pillow
