@@ -22,6 +22,8 @@ This project was built as part of an intensive 1-week sprint, focusing on delive
 -   **API Client:** Axios
 -   **Build/Packaging:** `electron-builder`
 
+---
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
@@ -30,7 +32,16 @@ These instructions will get you a copy of the project up and running on your loc
 
 -   Node.js (v18.x or later recommended)
 -   Git
--   A running instance of the backend API service for Assetorium.
+-   **A running instance of the backend API service for Assetorium.**
+
+### Backend Requirement
+
+This frontend application is a client only; it **cannot function** without the corresponding backend service running locally. The backend handles all AI model processing.
+
+**Before running `npm run dev`, you must first set up and run the Python backend.**
+
+*(Optional: Add a link to your backend repository here if you have one)*
+> Backend Repository: `[Link to your FastAPI/Celery project]`
 
 ### Installation
 
@@ -38,29 +49,82 @@ These instructions will get you a copy of the project up and running on your loc
     ```bash
     git clone https://github.com/KaustuvMohapatra/AI-Game-Asset-Maker.git
     ```
-
-2.  **Navigate to the project directory:**
+2.  **Navigate into the project and then the frontend directory:**
+    *All frontend-related commands must be run from the `frontend` folder.*
     ```bash
-    cd AI-Game-Asset-Maker
+    cd AI-Game-Asset-Maker/frontend
     ```
-
-3.  **Navigate to the frontend directory:**
-    *All frontend-related commands must be run from this folder.*
-    ```bash
-    cd frontend
-    ```
-
-4.  **Install NPM packages:**
+3.  **Install NPM packages:**
     ```bash
     npm install
     ```
 
+---
+
 ## Running the Application for Development
 
-This project uses `concurrently` to run the Vite development server and the Electron app in parallel, which enables hot-reloading for a smooth development experience.
+This project uses `concurrently` to run the Vite development server and the Electron app in parallel, enabling hot-reloading.
 
 **From the `frontend` directory, run:**
 
 ```bash
 npm run dev
+
+
+---
+
+## Running the Application for Development
+
+This project uses `concurrently` to run the Vite development server and the Electron app in parallel, enabling hot-reloading.
+
+**From the `frontend` directory, run:**
+
+```bash
+npm run dev
+```
+
+This command starts both the React development server and the Electron application.
+
+## Building for Production
+
+To create a distributable `.exe` (for Windows) or `.dmg` (for macOS):
+
+1.  **Build the React App:**
+    ```bash
+    npm run build
+    ```
+2.  **Package the Electron App:**
+    ```bash
+    npm run build:electron
+    ```
+    The final installer (e.g., `Assetorium Setup 0.1.0.exe`) will be located in the `frontend/dist_electron` folder.
+
+---
+
+## Project Structure
+
+A quick overview of the key files in the `frontend` directory:
+
+```
+frontend/
+├── dist/             # Vite build output (ignored by Git)
+├── dist_electron/    # Electron build output (ignored by Git)
+├── node_modules/     # Project dependencies (ignored by Git)
+├── public/
+│   ├── electron.js   # Main Electron process, window creation, IPC handlers
+│   └── preload.js    # Secure bridge between Electron and React
+├── src/
+│   ├── App.css       # Main styles
+│   ├── App.tsx       # Main React component, state management, UI
+│   └── main.tsx      # React entry point
+├── .gitignore        # Specifies files for Git to ignore
+├── package.json      # Project metadata, dependencies, and scripts
+└── ...
+```
+
+## Troubleshooting
+
+-   **App launches but "Generate" fails:** The most common issue is that the backend API service is not running. Make sure you have started your local Python (FastAPI + Celery) server before running the Electron app.
+-   **`npm install` fails:** Try deleting the `node_modules` folder and the `package-lock.json` file, then run `npm install` again.
+
 
