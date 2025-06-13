@@ -121,6 +121,8 @@ processed_dataset/
 # Output folder for generated assets
 /output/
 /generated_material*/
+# Electron builder output
+dist_electron/
 
 # Test engine projects
 # You might want to commit the test scenes, but ignore the large library files.
