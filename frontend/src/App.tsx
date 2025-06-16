@@ -1,8 +1,19 @@
-// src/App.tsx
+// frontend/src/App.tsx
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 import bgImage from './assets/bg.jpg';
+
+// --- NEW: TypeScript definitions for the Electron API exposed via preload.js ---
+declare global {
+    interface Window {
+        electronAPI: {
+            saveImage: (data: { url: string; prompt: string }) => Promise<{ success: boolean; path?: string; error?: string }>;
+            launchGame: (configPath: string) => void;
+        };
+    }
+}
 
 // --- TYPE DEFINITIONS ---
 // Represents the data sent to the backend to generate a game
@@ -16,12 +27,14 @@ interface GameFormData {
 }
 
 // Represents the structure of the results for a single generated game
+// --- UPDATED: Add configPath to the result type ---
 interface GameResult {
     title: string;
     characterUrl: string;
     backgroundUrl: string;
     rewardUrl: string;
     enemyUrl: string;
+    configPath: string; // The backend worker will now return this path
 }
 
 // Represents the state of a generation job
@@ -29,7 +42,6 @@ type JobStatus = 'QUEUED' | 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE';
 interface Job {
     id: string;
     status: JobStatus;
-    // The result will now be a GameResult object when successful
     result: GameResult | null;
     formData: GameFormData;
 }
@@ -37,10 +49,9 @@ interface Job {
 const API_URL = 'http://127.0.0.1:8000';
 
 // ==============================================================================
-// Game Preview Modal Component
+// Game Preview Modal Component (No changes needed here)
 // ==============================================================================
 const GamePreviewModal: React.FC<{ result: GameResult; onClose: () => void }> = ({ result, onClose }) => {
-    // This component remains the same
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -73,7 +84,6 @@ const GamePreviewModal: React.FC<{ result: GameResult; onClose: () => void }> = 
 // Main App Component
 // ==============================================================================
 function App() {
-    // --- CHANGE 1: Set initial form state to empty strings to allow placeholders to show ---
     const [formData, setFormData] = useState<GameFormData>({
         title: '',
         character: '',
@@ -87,13 +97,12 @@ function App() {
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [showPreview, setShowPreview] = useState<boolean>(false);
 
-    // Effect for polling the latest job status (no changes here)
+    // Effect for polling job status
     useEffect(() => {
+        // --- CHANGE: Don't automatically show preview on success ---
         if (!latestJob || latestJob.status === 'SUCCESS' || latestJob.status === 'FAILURE') {
             setIsGenerating(false);
-            if (latestJob?.status === 'SUCCESS' && latestJob.result) {
-                setShowPreview(true);
-            }
+            // We removed the automatic setShowPreview(true) from here.
             return;
         }
 
@@ -126,7 +135,8 @@ function App() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsGenerating(true);
-        setShowPreview(false);
+        setShowPreview(false); // Hide any previous previews
+        setLatestJob(null); // Clear out the old job
         try {
             const res = await axios.post<{ task_id: string }>(`${API_URL}/generate-game`, formData);
             setLatestJob({ id: res.data.task_id, status: 'QUEUED', formData, result: null });
@@ -137,6 +147,18 @@ function App() {
         }
     };
 
+    // --- NEW: Handler for the "Play Game" button ---
+    const handlePlayGame = () => {
+        if (latestJob?.status === 'SUCCESS' && latestJob.result?.configPath) {
+            console.log(`Requesting to launch game with config: ${latestJob.result.configPath}`);
+            // This function is defined in preload.js and exposed on the window object
+            window.electronAPI.launchGame(latestJob.result.configPath);
+        } else {
+            alert("Error: Game assets are not generated successfully or config path is missing.");
+        }
+    };
+
+
     return (
         <div className="app-container" style={{ backgroundImage: `url(${bgImage})` }}>
             <main className="app-main">
@@ -145,7 +167,7 @@ function App() {
                         <h2>Create Your Game</h2>
                     </div>
 
-                    {/* --- CHANGE 2: Add placeholder attributes to all text inputs --- */}
+                    {/* All form rows remain the same */}
                     <div className="form-row">
                         <label htmlFor="title">Title</label>
                         <input type="text" id="title" name="title" value={formData.title} onChange={handleInputChange} className="input-field" placeholder="Enter your game's title" />
@@ -175,6 +197,25 @@ function App() {
                         {isGenerating ? 'Generating...' : '✓ Generate Game'}
                     </button>
                 </form>
+
+                 {/* --- NEW: Results and Actions Section --- */}
+                 {latestJob && (
+                    <div className="status-and-actions">
+                        <p className={`job-status status-${latestJob.status.toLowerCase()}`}>
+                           Status: {latestJob.status}
+                        </p>
+                        {latestJob.status === 'SUCCESS' && latestJob.result && (
+                            <div className="actions-container">
+                                <button className="action-button preview" onClick={() => setShowPreview(true)}>
+                                    🖼️ Preview Assets
+                                </button>
+                                <button className="action-button play" onClick={handlePlayGame}>
+                                    ▶️ Play Game
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </main>
 
             {showPreview && latestJob?.result && (

@@ -1,6 +1,12 @@
+// frontend/public/preload.js
+
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-    // We are exposing the 'save-image' functionality to our React app
+    // Keep the existing 'save-image' functionality
     saveImage: (data) => ipcRenderer.invoke('save-image', data),
+
+    // --- NEW: Expose a function to trigger the game launch ---
+    // This sends a one-way message to the main process with the config file path.
+    launchGame: (configPath) => ipcRenderer.send('launch-game', configPath),
 });

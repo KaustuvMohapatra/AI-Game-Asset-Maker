@@ -1,7 +1,10 @@
+// frontend/electron.js
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { spawn } = require('child_process'); // <-- ADD THIS
 
 function createWindow() {
     // Create the browser window.
@@ -12,6 +15,7 @@ function createWindow() {
             // preload.js is crucial for secure communication between Electron and React
             preload: path.join(__dirname, 'preload.js'),
             // For security, contextIsolation should be true (the default)
+            contextIsolation: true, 
         },
     });
 
@@ -55,6 +59,40 @@ ipcMain.handle('save-image', async (event, { url, prompt }) => {
     }
     return { success: false, error: 'Save cancelled by user.' };
 });
+
+
+// --- NEW: IPC HANDLER FOR LAUNCHING THE GAME ---
+ipcMain.on('launch-game', (event, configPath) => {
+  console.log('Received launch-game event for config:', configPath);
+
+  // Construct the absolute path to the backend directory and the python script
+  // It's robustly defined from this file's location.
+  const backendPath = path.join(app.getAppPath(), '..', 'backend');
+  const gameScriptPath = path.join(backendPath, 'run_game.py');
+
+  console.log(`Attempting to run script: ${gameScriptPath}`);
+  console.log(`Working directory: ${backendPath}`);
+  console.log(`With config: ${configPath}`);
+
+
+  // Use 'spawn' to run the python script as a separate process.
+  // We pass the config file path as a command-line argument.
+  const pythonProcess = spawn('python', [gameScriptPath, configPath], {
+    cwd: backendPath, // Set the 'current working directory' to the backend folder
+    stdio: 'inherit'  // Pipe python's console output (print statements, errors) to Electron's console
+  });
+
+  pythonProcess.on('close', (code) => {
+    console.log(`Pygame process exited with code ${code}`);
+  });
+
+  pythonProcess.on('error', (err) => {
+    // This will be called if the process could not be spawned, e.g., 'python' not in PATH
+    console.error('Failed to start Pygame process:', err);
+    dialog.showErrorBox('Execution Error', `Failed to start the game engine. Make sure Python is installed and configured in your system's PATH.\n\nError: ${err.message}`);
+  });
+});
+
 
 // --- APP LIFECYCLE ---
 
