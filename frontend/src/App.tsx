@@ -40,6 +40,7 @@ const API_URL = 'http://127.0.0.1:8000';
 // Game Preview Modal Component
 // ==============================================================================
 const GamePreviewModal: React.FC<{ result: GameResult; onClose: () => void }> = ({ result, onClose }) => {
+    // This component remains the same
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -72,12 +73,13 @@ const GamePreviewModal: React.FC<{ result: GameResult; onClose: () => void }> = 
 // Main App Component
 // ==============================================================================
 function App() {
+    // --- CHANGE 1: Set initial form state to empty strings to allow placeholders to show ---
     const [formData, setFormData] = useState<GameFormData>({
-        title: 'Pixel Quest',
-        character: 'A brave knight with a glowing sword, pixel art',
-        background: 'An enchanted forest with luminous mushrooms, pixel art',
-        reward: 'A golden chalice, pixel art game icon',
-        enemy: 'A slime monster, pixel art',
+        title: '',
+        character: '',
+        background: '',
+        reward: '',
+        enemy: '',
         levels: 5,
     });
 
@@ -85,7 +87,7 @@ function App() {
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [showPreview, setShowPreview] = useState<boolean>(false);
 
-    // Effect for polling the latest job status
+    // Effect for polling the latest job status (no changes here)
     useEffect(() => {
         if (!latestJob || latestJob.status === 'SUCCESS' || latestJob.status === 'FAILURE') {
             setIsGenerating(false);
@@ -126,8 +128,6 @@ function App() {
         setIsGenerating(true);
         setShowPreview(false);
         try {
-            // NOTE: Your backend will need an endpoint like '/generate-game'
-            // that accepts the new GameFormData structure.
             const res = await axios.post<{ task_id: string }>(`${API_URL}/generate-game`, formData);
             setLatestJob({ id: res.data.task_id, status: 'QUEUED', formData, result: null });
         } catch (error) {
@@ -145,25 +145,26 @@ function App() {
                         <h2>Create Your Game</h2>
                     </div>
 
+                    {/* --- CHANGE 2: Add placeholder attributes to all text inputs --- */}
                     <div className="form-row">
                         <label htmlFor="title">Title</label>
-                        <input type="text" id="title" name="title" value={formData.title} onChange={handleInputChange} className="input-field" />
+                        <input type="text" id="title" name="title" value={formData.title} onChange={handleInputChange} className="input-field" placeholder="Enter your game's title" />
                     </div>
                     <div className="form-row">
                         <label htmlFor="character">Character</label>
-                        <textarea id="character" name="character" value={formData.character} onChange={handleInputChange} className="input-field" rows={2} />
+                        <textarea id="character" name="character" value={formData.character} onChange={handleInputChange} className="input-field" rows={2} placeholder="Main character (e.g., 'ninja cat', 'pixel knight')" />
                     </div>
                     <div className="form-row">
                         <label htmlFor="background">Background</label>
-                        <textarea id="background" name="background" value={formData.background} onChange={handleInputChange} className="input-field" rows={2} />
+                        <textarea id="background" name="background" value={formData.background} onChange={handleInputChange} className="input-field" rows={2} placeholder="Game background (e.g., 'space station', 'ancient jungle')" />
                     </div>
                     <div className="form-row">
                         <label htmlFor="reward">Reward</label>
-                        <input type="text" id="reward" name="reward" value={formData.reward} onChange={handleInputChange} className="input-field" />
+                        <input type="text" id="reward" name="reward" value={formData.reward} onChange={handleInputChange} className="input-field" placeholder="The in-game reward (e.g., 'gold coins', 'magic scrolls')" />
                     </div>
                     <div className="form-row">
                         <label htmlFor="enemy">Enemy</label>
-                        <input type="text" id="enemy" name="enemy" value={formData.enemy} onChange={handleInputChange} className="input-field" />
+                        <input type="text" id="enemy" name="enemy" value={formData.enemy} onChange={handleInputChange} className="input-field" placeholder="Enemy type (e.g., 'robots', 'zombies')" />
                     </div>
                     <div className="form-row">
                         <label htmlFor="levels">Number of Levels</label>
