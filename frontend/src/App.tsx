@@ -2,143 +2,134 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
+import bgImage from './assets/bg.jpg';
 
 // --- TYPE DEFINITIONS ---
-type AssetType = 'icon' | 'texture';
-type JobStatus = 'QUEUED' | 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE'; // Added 'STARTED'
+// Represents the data sent to the backend to generate a game
+interface GameFormData {
+    title: string;
+    character: string;
+    background: string;
+    reward: string;
+    enemy: string;
+    levels: number;
+}
+
+// Represents the structure of the results for a single generated game
+interface GameResult {
+    title: string;
+    characterUrl: string;
+    backgroundUrl: string;
+    rewardUrl: string;
+    enemyUrl: string;
+}
+
+// Represents the state of a generation job
+type JobStatus = 'QUEUED' | 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE';
 interface Job {
     id: string;
     status: JobStatus;
-    result: { urls: string[] } | null;
-    prompt: string;
-    type: AssetType;
+    // The result will now be a GameResult object when successful
+    result: GameResult | null;
+    formData: GameFormData;
 }
 
-// --- API CONFIG ---
 const API_URL = 'http://127.0.0.1:8000';
 
-// --- COMPONENTS ---
-
-// ImageCard Component: Renders a single generated image or its loading state
-const ImageCard: React.FC<{ job: Job }> = ({ job }) => {
-    const handleSave = async () => {
-        if (job.result?.urls?.[0]) {
-            // The backend returns a relative path like 'output/job_id/icon.png'
-            // We need to construct the full URL for the download request.
-            const fullUrl = `${API_URL}/${job.result.urls[0]}`;
-
-            // Access the 'saveImage' function exposed by preload.js
-            const result = await window.electronAPI.saveImage({ url: fullUrl, prompt: job.prompt });
-
-            if (result.success) {
-                console.log(`Image saved to ${result.path}`);
-                alert(`Image saved successfully!`);
-            } else {
-                console.error('Save failed:', result.error);
-                // Don't alert on user cancellation
-                if (result.error !== 'Save cancelled by user.') {
-                    alert(`Failed to save image: ${result.error}`);
-                }
-            }
-        }
-    };
-
+// ==============================================================================
+// Game Preview Modal Component
+// ==============================================================================
+const GamePreviewModal: React.FC<{ result: GameResult; onClose: () => void }> = ({ result, onClose }) => {
     return (
-        <div className="grid-item">
-            <div className="image-wrapper">
-                {job.status === 'SUCCESS' && job.result?.urls?.[0] ? (
-                    <img src={`${API_URL}/${job.result.urls[0]}`} alt={job.prompt} />
-                ) : (
-                    <div className="placeholder">
-                        <div className="spinner"></div>
-                        <p>{job.status}</p>
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <button className="close-button" onClick={onClose}>×</button>
+                <h2>{result.title}</h2>
+                <div className="preview-grid">
+                    <div className="preview-item">
+                        <h3>Character</h3>
+                        <img src={`${API_URL}/${result.characterUrl}`} alt="Generated Character" />
                     </div>
-                )}
-            </div>
-            <div className="card-footer">
-                <p className="image-prompt" title={job.prompt}>{job.prompt}</p>
-                {job.status === 'SUCCESS' && (
-                    <button onClick={handleSave} className="save-button" title="Save Image">
-                        {/* Using a simple save icon SVG */}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                        </svg>
-                    </button>
-                )}
+                    <div className="preview-item">
+                        <h3>Enemy</h3>
+                        <img src={`${API_URL}/${result.enemyUrl}`} alt="Generated Enemy" />
+                    </div>
+                    <div className="preview-item">
+                        <h3>Reward</h3>
+                        <img src={`${API_URL}/${result.rewardUrl}`} alt="Generated Reward" />
+                    </div>
+                    <div className="preview-item full-width">
+                        <h3>Background</h3>
+                        <img src={`${API_URL}/${result.backgroundUrl}`} alt="Generated Background" />
+                    </div>
+                </div>
             </div>
         </div>
     );
 };
 
+// ==============================================================================
 // Main App Component
+// ==============================================================================
 function App() {
-    const [prompt, setPrompt] = useState<string>('A powerful magic sword, fantasy game icon');
-    const [assetType, setAssetType] = useState<AssetType>('icon');
-    const [jobs, setJobs] = useState<Job[]>([]);
+    const [formData, setFormData] = useState<GameFormData>({
+        title: 'Pixel Quest',
+        character: 'A brave knight with a glowing sword, pixel art',
+        background: 'An enchanted forest with luminous mushrooms, pixel art',
+        reward: 'A golden chalice, pixel art game icon',
+        enemy: 'A slime monster, pixel art',
+        levels: 5,
+    });
+
+    const [latestJob, setLatestJob] = useState<Job | null>(null);
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
+    const [showPreview, setShowPreview] = useState<boolean>(false);
 
-    // Polling effect
+    // Effect for polling the latest job status
     useEffect(() => {
-        const activeJobs = jobs.filter(job => job.status !== 'SUCCESS' && job.status !== 'FAILURE');
-
-        if (activeJobs.length === 0) {
+        if (!latestJob || latestJob.status === 'SUCCESS' || latestJob.status === 'FAILURE') {
             setIsGenerating(false);
+            if (latestJob?.status === 'SUCCESS' && latestJob.result) {
+                setShowPreview(true);
+            }
             return;
         }
 
-        const intervalId = setInterval(() => {
-            activeJobs.forEach(async (job) => {
-                try {
-                    // Note the task_id in the API response is what we need to match, not job.id
-                    const res = await axios.get<{ task_id: string; status: JobStatus; result: any }>(`${API_URL}/status/${job.id}`);
-                    setJobs(prevJobs => prevJobs.map(j => (j.id === res.data.task_id ? { ...j, status: res.data.status, result: res.data.result } : j)));
-                } catch (error) {
-                    console.error(`Error polling job ${job.id}:`, error);
-                    // Optional: handle failed jobs
-                    setJobs(prevJobs => prevJobs.map(j => (j.id === job.id ? { ...j, status: 'FAILURE'} : j)));
+        const intervalId = setInterval(async () => {
+            try {
+                const res = await axios.get<{ task_id: string; status: JobStatus; result: any }>(`${API_URL}/status/${latestJob.id}`);
+                if (res.data.status === 'SUCCESS' || res.data.status === 'FAILURE') {
+                    setLatestJob(prev => prev ? { ...prev, status: res.data.status, result: res.data.result } : null);
+                    clearInterval(intervalId);
                 }
-            });
-        }, 2500);
-
-        return () => clearInterval(intervalId); // Cleanup function
-    }, [jobs]); // Rerun effect if jobs array changes
-
-    // Prompt History Management (Load once on mount)
-    useEffect(() => {
-        try {
-            const savedHistory = localStorage.getItem('promptHistory');
-            if (savedHistory) {
-                const parsedHistory = JSON.parse(savedHistory);
-                // Basic validation
-                if (Array.isArray(parsedHistory)) {
-                    setJobs(parsedHistory);
-                }
+            } catch (error) {
+                console.error(`Error polling job ${latestJob.id}:`, error);
+                setLatestJob(prev => prev ? { ...prev, status: 'FAILURE' } : null);
+                clearInterval(intervalId);
             }
-        } catch (error) {
-            console.error("Failed to load or parse prompt history:", error);
-            localStorage.removeItem('promptHistory'); // Clear corrupted data
-        }
-    }, []); // Empty dependency array means this runs only once on component mount
+        }, 3000);
 
-    // Save history whenever it changes
-    useEffect(() => {
-        localStorage.setItem('promptHistory', JSON.stringify(jobs));
-    }, [jobs]);
+        return () => clearInterval(intervalId);
+    }, [latestJob]);
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleLevelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, levels: parseInt(e.target.value, 10) }));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!prompt.trim()) {
-            alert("Prompt cannot be empty.");
-            return;
-        }
         setIsGenerating(true);
+        setShowPreview(false);
         try {
-            const res = await axios.post<{ task_id: string }>(`${API_URL}/generate`, { prompt, type: assetType });
-            const { task_id } = res.data;
-            // Prepend the new job to the top of the list
-            setJobs(prevJobs => [{ id: task_id, status: 'QUEUED', result: null, prompt, type: assetType }, ...prevJobs]);
+            // NOTE: Your backend will need an endpoint like '/generate-game'
+            // that accepts the new GameFormData structure.
+            const res = await axios.post<{ task_id: string }>(`${API_URL}/generate-game`, formData);
+            setLatestJob({ id: res.data.task_id, status: 'QUEUED', formData, result: null });
         } catch (error) {
             console.error("Error submitting job:", error);
             alert("Failed to submit job. Is the backend server running?");
@@ -147,54 +138,47 @@ function App() {
     };
 
     return (
-        <div className="app-container">
-            <header className="app-header">
-                <h1>Aetherium Studio</h1>
-            </header>
+        <div className="app-container" style={{ backgroundImage: `url(${bgImage})` }}>
             <main className="app-main">
-                <form onSubmit={handleSubmit} className="prompt-form">
-                    {/* ====================================================== */}
-                    {/* THIS IS THE PART THAT FIXES THE ERROR                    */}
-                    {/* ====================================================== */}
-                    <div className="form-group">
-                        <label htmlFor="prompt-input">Prompt</label>
-                        <textarea
-                            id="prompt-input"
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            rows={3}
-                            placeholder="e.g., seamless stone texture, 2D, highly detailed"
-                        />
+                <form onSubmit={handleSubmit} className="game-form-container">
+                    <div className="form-header">
+                        <h2>Create Your Game</h2>
                     </div>
-                    <div className="form-group">
-                        <label htmlFor="asset-type">Asset Type</label>
-                        <select
-                            id="asset-type"
-                            value={assetType}
-                            onChange={(e) => setAssetType(e.target.value as AssetType)}
-                        >
-                            <option value="icon">Icon</option>
-                            <option value="texture">Seamless Texture</option>
-                        </select>
+
+                    <div className="form-row">
+                        <label htmlFor="title">Title</label>
+                        <input type="text" id="title" name="title" value={formData.title} onChange={handleInputChange} className="input-field" />
                     </div>
-                    {/* ====================================================== */}
-                    {/* END OF FIX                                             */}
-                    {/* ====================================================== */}
-                    <button type="submit" disabled={isGenerating}>
-                        {isGenerating ? 'Generating...' : 'Generate'}
+                    <div className="form-row">
+                        <label htmlFor="character">Character</label>
+                        <textarea id="character" name="character" value={formData.character} onChange={handleInputChange} className="input-field" rows={2} />
+                    </div>
+                    <div className="form-row">
+                        <label htmlFor="background">Background</label>
+                        <textarea id="background" name="background" value={formData.background} onChange={handleInputChange} className="input-field" rows={2} />
+                    </div>
+                    <div className="form-row">
+                        <label htmlFor="reward">Reward</label>
+                        <input type="text" id="reward" name="reward" value={formData.reward} onChange={handleInputChange} className="input-field" />
+                    </div>
+                    <div className="form-row">
+                        <label htmlFor="enemy">Enemy</label>
+                        <input type="text" id="enemy" name="enemy" value={formData.enemy} onChange={handleInputChange} className="input-field" />
+                    </div>
+                    <div className="form-row">
+                        <label htmlFor="levels">Number of Levels</label>
+                        <input type="number" id="levels" name="levels" value={formData.levels} onChange={handleLevelChange} className="number-input" min="1" max="100" />
+                    </div>
+
+                    <button type="submit" className="generate-button" disabled={isGenerating}>
+                        {isGenerating ? 'Generating...' : '✓ Generate Game'}
                     </button>
                 </form>
-                <div className="gallery-container">
-                    <h2>Generation History</h2>
-                    <div className="image-grid">
-                        {jobs.length > 0 ? (
-                            jobs.map(job => <ImageCard key={job.id} job={job} />)
-                        ) : (
-                            <p className="empty-gallery-message">Your generated assets will appear here.</p>
-                        )}
-                    </div>
-                </div>
             </main>
+
+            {showPreview && latestJob?.result && (
+                <GamePreviewModal result={latestJob.result} onClose={() => setShowPreview(false)} />
+            )}
         </div>
     );
 }

@@ -1,42 +1,207 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
+/* src/App.css */
+
+/* --- Base & Font Setup --- */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+body {
+  margin: 0;
+  /* Using VT323 as the primary font for a retro terminal feel */
+  font-family: 'VT323', monospace;
+  background-color: #0d0d0d;
+  color: #f5f5f5;
+  overflow: hidden; /* Prevent scrolling */
+}
+
+/* --- Main App Container & Background --- */
+.app-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100vw;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.app-main {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* --- Game Form Styling --- */
+.game-form-container {
+  background-color: rgba(20, 2, 38, 0.85); /* Deep purple, semi-transparent */
+  border: 3px solid #ffcc00; /* Bright yellow border */
+  border-radius: 12px;
   padding: 2rem;
+  width: 100%;
+  max-width: 550px;
+  box-shadow: 0 0 25px rgba(255, 204, 0, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.form-header h2 {
+  font-family: 'Press Start 2P', cursive; /* Pixelated font for the header */
+  font-size: 1.8rem;
+  color: #ffcc00;
+  text-shadow: 2px 2px #9e009e; /* Purple shadow */
+  margin: 0;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-row label {
+  font-size: 1.5rem;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.input-field, .number-input {
+  background-color: #000;
+  border: 2px solid #5a005a; /* Purple border */
+  border-radius: 4px;
+  color: #00ff00; /* Green text for a terminal look */
+  padding: 0.75rem;
+  font-family: 'VT323', monospace;
+  font-size: 1.4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+textarea.input-field {
+  resize: vertical;
+}
+
+.number-input {
+  width: 80px;
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* --- Generate Button --- */
+.generate-button {
+  background-color: #ffcc00;
+  color: #140226;
+  border: 3px solid #5a005a;
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+  box-shadow: 0 4px #9e009e;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.generate-button:hover {
+  background-color: #fff56d;
+  box-shadow: 0 2px #9e009e;
+  transform: translateY(2px);
 }
 
-.card {
-  padding: 2em;
+.generate-button:active {
+  box-shadow: 0 0 #9e009e;
+  transform: translateY(4px);
 }
 
-.read-the-docs {
-  color: #888;
+.generate-button:disabled {
+  background-color: #555;
+  color: #999;
+  border-color: #333;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* --- Game Preview Modal Styling --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background-color: #140226;
+  border: 3px solid #ffcc00;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  text-align: center;
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #ffcc00;
+  font-size: 2.5rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-content h2 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 2rem;
+  color: #ffcc00;
+  margin-top: 0;
+  margin-bottom: 2rem;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.preview-item {
+  background-color: rgba(0, 0, 0, 0.4);
+  border: 2px solid #5a005a;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.preview-item.full-width {
+  grid-column: 1 / -1; /* Make background span the full width */
+}
+
+.preview-item h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.preview-item img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  background-color: #333;
 }
