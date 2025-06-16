@@ -1,0 +1,8 @@
+{
+    "title": "ji",
+    "character_prompt": "cat",
+    "background_prompt": "jungle",
+    "reward_prompt": "coin",
+    "enemy_prompt": "dog",
+    "levels": 3
+}
