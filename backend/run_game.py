@@ -1,10 +1,11 @@
 import pygame
 import json
 import os
-import sys  # <-- ADDED: To read command-line arguments
+import sys
 from PIL import Image
 import numpy as np
 
+# This assumes your engine files are in an 'engine' subfolder
 from engine.player import Player
 from engine.enemy import Enemy
 from engine.platform import Platform
@@ -16,31 +17,29 @@ WIDTH, HEIGHT = 960, 540
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
-
-# --- SECTION 1: UPDATED CONFIGURATION LOADER ---
-# This block replaces the old hardcoded path. It now accepts a path from the command line,
-# which is how your Electron app will tell the game which configuration to run.
+# --- SECTION 1: INTEGRATION - DYNAMIC CONFIGURATION LOADER ---
+# This block is from the new script. It allows Electron to tell the game
+# which specific set of generated assets to run via a command-line argument.
 
 if len(sys.argv) > 1:
     # If a command-line argument is provided, use it as the path
     config_path = sys.argv[1]
     print(f"Loading configuration from provided path: {config_path}")
 else:
-    # This is a fallback for when you run the script directly for testing
+    # This is a fallback for testing the script directly without Electron
     print("Usage: python run_game.py <path_to_config_json>")
     output_dir = "output_model"
-    
     if not os.path.exists(output_dir):
-        raise FileNotFoundError(f"ERROR: The fallback directory '{output_dir}' was not found. Please generate assets first.")
-
-    # Find the most recently modified .json file in the output_model directory
+        raise FileNotFoundError(f"ERROR: Fallback directory '{output_dir}' not found. Please generate assets first.")
+    
+    # Find the most recently created .json file
     configs = sorted(
         [os.path.join(output_dir, f) for f in os.listdir(output_dir) if f.endswith('.json')],
         key=os.path.getmtime,
         reverse=True
     )
     if not configs:
-        raise Exception("No config file provided and none found in output_model.")
+        raise Exception("No config file provided and no fallback found in output_model.")
     config_path = configs[0]
     print(f"No config path provided, using latest found: {config_path}")
 
@@ -50,22 +49,18 @@ try:
 except FileNotFoundError:
     print(f"FATAL ERROR: The configuration file was not found at the path: {config_path}")
     pygame.quit()
-    sys.exit() # Exit the script if the config can't be found
+    sys.exit()
 
 # Set the window title from the loaded configuration
 pygame.display.set_caption(config.get("title", "Generative Game"))
 
-
-# --- SECTION 2: UPDATED IMAGE LOADING UTILITIES ---
+# --- SECTION 2: INTEGRATION - ROBUST IMAGE LOADING UTILITIES ---
 
 def load_latest_image(folder):
-    """
-    Finds the most recently modified image in a folder and returns it as a transparent Surface.
-    This is more reliable than sorting by name.
-    """
+    """Finds the most recently modified image in a folder and returns it as a transparent Surface."""
     if not os.path.exists(folder):
         raise FileNotFoundError(f"Asset folder not found: {folder}")
-        
+    
     files = sorted(
         [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(('.png', '.jpg', '.jpeg'))],
         key=os.path.getmtime,
@@ -84,21 +79,19 @@ def load_image_make_transparent(path, colorkey=(255, 255, 255)):
     image.set_colorkey(colorkey)
     return image.convert_alpha()
 
-# Utility: get average color from background image (PIL + numpy)
 def get_average_color(image_path):
     img = Image.open(image_path).convert('RGB')
     img_np = np.array(img)
     avg_color = img_np.mean(axis=(0,1)).astype(int)
     return tuple(avg_color)
 
-# Darken color for better platform visibility
 def darken_color(color, amount=40):
     return tuple(max(c - amount, 0) for c in color)
 
 
-# --- SECTION 3: ASSET LOADING (No changes needed, but now uses the updated functions) ---
+# --- SECTION 3: ASSET AND GAME ENTITY SETUP (FROM ORIGINAL SCRIPT) ---
+# This section now uses the robust loading functions to get the latest assets.
 
-# Find the absolute path of the latest background image to use for color averaging
 bg_folder = "assets/backgrounds"
 latest_bg_path = sorted([os.path.join(bg_folder, f) for f in os.listdir(bg_folder)], key=os.path.getmtime, reverse=True)[0]
 
@@ -109,20 +102,19 @@ CHAR_IMG = pygame.transform.scale(load_latest_image("assets/characters"), (64, 6
 ENEMY_IMG = pygame.transform.scale(load_latest_image("assets/enemies"), (64, 64))
 REWARD_IMG = pygame.transform.scale(load_latest_image("assets/rewards"), (32, 32))
 
-
-# --- ALL REMAINING GAME LOGIC IS UNCHANGED ---
-
-# Game entities
-player = Player(100, HEIGHT - 80, CHAR_IMG)
+# Game entities are restored to their exact original positions
+player = Player(100, HEIGHT - 40, CHAR_IMG) # Adjusted to be above the platform, not inside it
 reward_rect = pygame.Rect(WIDTH + 200, HEIGHT - 90, 32, 32)
 
-# Create enemies on each platform
 enemies = [
     Enemy(WIDTH + 100, HEIGHT - 100, ENEMY_IMG),
     Enemy(400 + 50, 400 - 64, ENEMY_IMG),
     Enemy(700 + 50, 300 - 64, ENEMY_IMG),
     Enemy(1000 + 50, 350 - 64, ENEMY_IMG),
 ]
+
+# --- SECTION 4: GAME STATE AND MAIN LOOP (FROM ORIGINAL SCRIPT) ---
+# All game logic, including score and health, is preserved from your original script.
 
 score = 0
 bg_scroller = BackgroundScroller(BG_IMG, speed=3)
@@ -135,6 +127,7 @@ platforms = [
 font = pygame.font.SysFont(None, 28)
 
 def draw_hud():
+    # This function, which relies on player.health, is preserved.
     draw_score(screen, score, player.health)
 
 def main():
@@ -177,6 +170,8 @@ def main():
         for enemy in enemies:
             enemy.draw(screen)
         screen.blit(REWARD_IMG, reward_rect)
+        
+        # The HUD (score and health) is drawn on every frame.
         draw_hud()
 
         if not player.is_alive():
@@ -186,7 +181,7 @@ def main():
         pygame.display.update()
 
     pygame.quit()
-    sys.exit() # Ensure the script fully closes
+    sys.exit()
 
 if __name__ == "__main__":
     main()

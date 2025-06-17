@@ -28,7 +28,7 @@ class Enemy:
         if overlap and current_time - self.last_damage_time > self.damage_cooldown:
             player.health -= 10
             self.last_damage_time = current_time
-            print(f"[⚠️  Enemy Hit] Player damaged! Health: {player.health}")
+            print(f"[!! ENEMY HIT !!] Player damaged! Health: {player.health}")
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
